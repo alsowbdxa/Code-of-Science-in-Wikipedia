@@ -1,0 +1,170 @@
+import os
+import nltk
+import numpy as np
+import pandas as pd
+import networkx as nx
+import seaborn as sns
+from tqdm import tqdm
+from collections import Counter
+import matplotlib.pyplot as plt
+from itertools import *
+import bisect
+import leidenalg as la
+import gc
+import igraph as ig
+
+tqdm.pandas()
+sns.set(style="darkgrid")
+
+INPUT_DATA = 'minimal_dataset.parquet' #can be found from : https://github.com/Harshdeep1996/cite-classifications-wiki
+# read the data
+citations = pd.read_parquet(INPUT_DATA)#size is 29276667
+
+def clean(i):
+   if i==None:
+       return None
+   if 'DOI' in i:
+       doi_string = i[i.find('DOI')+4:]
+       cm = doi_string.find(',')
+       pr = doi_string.find('}')
+       cut = cm
+       if cut < 0 or (pr > 0 and cut > pr):
+           cut = pr
+       d = doi_string[:cut].lower()
+       if len(d)>0:
+           doi = d
+       else:
+           doi = None
+   else:
+       doi = None
+   return doi
+
+def clean1(i):
+   if '[' in str(i):
+       doi = i[0].lower()
+   else:
+       doi = None
+   return doi
+   
+citations['article_id'] = citations['ID_list'].progress_apply(lambda x:clean(x))
+citations['ndoi'] = citations['updated_identifier'].progress_apply(lambda x:clean1(x))
+citations['doi']=citations['article_id'].combine_first(citations['ndoi'])
+
+result = citations[['page_title','doi']]
+
+result1 = result.dropna(subset = ['doi'])# size is 1705085
+
+########## create co-citation network matrix start #########################
+#co-citation network
+g1 = result1.groupby('page_title')
+g2=[i[1]['doi'] for i in g1] # the size of g2 is 405358
+g3 = [i for i in g2 if len(i)>1] #the size of g3 is 201987
+
+node_list = list(set([x for i in g3 for x in i])) # size:1050686; generate a node list of cited artical
+node_list.sort() #prepare for the next step: bisect_left need an order list
+edge_list = []#size is 17816861
+
+for i in tqdm(g3):  #it costs 9 seconds to get the edge_list
+    p = [x for x in i] #list of cited artical doi in each wiki page
+    c=sorted([bisect.bisect_left(node_list, x) for x in p]) #index of each doi in the whole list(node_list)
+    edge_list.append(list(combinations(c,2))) #generat edge_list for each wiki page by combinations(from itertools import *)
+
+dic={}#edge number is 17916861, and key is edge, value is weight of the edge
+for x in tqdm(edge_list):#19 seconds
+    for y in x:
+        try:
+            dic[y]+=1
+        except:
+            dic[y] = 1
+key = list(dic.keys())
+value = list(dic.values())
+
+g=ig.Graph()
+g.add_vertices(len(node_list))
+g.add_edges(key[:])
+g.es[:]['weight']=value[:]
+g.vs['weight']=[1 for i in range(len(node_list))]
+g.vs['name'] = node_list
+
+#use leiden detect the community
+cluster_solution = g.community_leiden(resolution_parameter=0.0001, n_iterations=2,weights=g.es['weight'],node_weights=g.vs['weight'])
+# to draw the network of clusters
+super_graph = cluster_solution.cluster_graph(combine_vertices={'weight': 'sum'},combine_edges={'weight': 'sum'})
+
+to_delete_ids = [v.index for v in s1.vs if v.degree() == 0]
+s1.delete_vertices(to_delete_ids)# co-citation node:31515
+############# co-citation network end #######################################
+
+######## Bibliographic coupling network start ################
+g11 = result.groupby('doi')
+g22=[i[1]['page_title'] for i in g11] # the size of g2 is 1157571
+g33 = [i for i in g22 if len(i)>1] #the size of g3 is 231129
+
+node_list = list(set([x for i in g33 for x in i])) # size:257452; generate a node list of cited artical
+node_list.sort() #prepare for the next step: bisect_left need an order list
+edge_list = []#size is 27473262
+
+for i in tqdm(g33):  #it costs 7 seconds to get the edge_list
+    p = [x for x in i] #list of cited artical doi in each wiki page
+    c=sorted([bisect.bisect_left(node_list, x) for x in p]) #index of each doi in the whole list(node_list)
+    edge_list.append(list(combinations(c,2))) #generat edge_list for each wiki page by combinations(from itertools import *)
+
+dic={}#edge number is 27473262, and key is edge, value is weight of the edge
+for x in tqdm(edge_list):#30 seconds
+    for y in x:
+        try:
+            dic[y]+=1
+        except:
+            dic[y] = 1
+key = list(dic.keys())
+value = list(dic.values())
+
+g=ig.Graph()
+g.add_vertices(len(node_list))
+g.add_edges(key[:])
+g.es[:]['weight']=value[:]
+g.vs['weight']=[1 for i in range(len(node_list))]
+g.vs['name'] = node_list
+
+# g.density()
+# Out[13]: 0.0008289901502753311
+
+#use leiden detect the community
+cluster_solution = g.community_leiden(resolution_parameter=0.0001, n_iterations=2,weights=g.es['weight'],node_weights=g.vs['weight'])
+
+# pb = la.find_partition(g, la.ModularityVertexPartition)
+
+sb = pb.cluster_graph(combine_vertices={'weight': 'sum'},combine_edges={'weight': 'sum'})
+
+sb.vcount()
+
+tb = [v.index for v in sb.vs if v.degree() == 0]
+sb.delete_vertices(tb)
+
+ig.write(sb,file_name,format='gml')
+
+testread = ig.read(file_name,format='gml')
+
+########## Bibliographic coupling network end ####################
+
+#############analysis Bibliographic coupling network start #############
+#g.vount()#  the number of nodes
+#g.ecount() # the number of edges
+#g.vs[] #each node's information
+#g.es[] #each edge's information
+g.vs['label']=node_list
+degree = g.degree()
+neighbors = dict(zip(g.vs['label'], degree))
+neighbors_sorted = sorted(neighbors.items(), key=lambda e: e[1],reverse=True)
+
+betweenness = g.betweenness()
+betweenness = [round(i, 1) for i in betweenness]
+node_betweenness = dict(zip(g.vs['label'], betweenness))
+node_betweenness_sorted = sorted(node_betweenness.items(), key=lambda e: e[1],reverse=True)
+
+partition.total_weight_in_all_comms() #result=12760
+#get all the subgraphs
+subgraphs=partition.subgraphs()#type is list, and size is 1240
+
+
+
