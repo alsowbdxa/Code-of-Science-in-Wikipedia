@@ -166,5 +166,225 @@ partition.total_weight_in_all_comms() #result=12760
 #get all the subgraphs
 subgraphs=partition.subgraphs()#type is list, and size is 1240
 
+################################################################################
 
+# add fields to co-citation network
+field = [doi2fields[i] for i in g.vs['name']]
+g.vs['field'] = field
+
+cluster_solution = g.community_leiden(resolution_parameter=0.0001, n_iterations=2,weights=g.es['weight'],node_weights=g.vs['weight'])
+super_graph = cluster_solution.cluster_graph(combine_vertices={'weight': 'sum'},combine_edges={'weight': 'sum'})
+
+t2=[]
+t3=[]
+for i in tqdm(cluster_solution):
+    f = [g.vs[n]['field'] for n in i]
+    f=sorted(f)
+    c = Counter(f)
+    t2.append(c.most_common(1)[0][0])
+
+super_graph.vs['field'] = t2
+
+t1=super_graph.vs['weight']
+t1=sorted(t1,reverse=1)#from large to small
+
+# sum(t1[:475])/sum(t1)
+# Out[435]: 0.7001302006498611
+
+# t1[475]
+# Out[436]: 137.0
+
+tb = [v.index for v in super_graph.vs if v['weight'] < 137] #to filter more than 70%
+super_graph.delete_vertices(tb)
+
+ig.write(super_graph,file_name,format='graphml')
+##############################################
+# add topic and wk_project to biblio network
+topic = [page2topics[i] for i in gb.vs['name']]
+wk = [page2wk_projects[i] for i in gb.vs['name']]
+
+gb.vs['topic'] = topic
+gb.vs['wk_project'] = wk
+
+cb = gb.community_leiden(resolution_parameter=0.0001, n_iterations=2,weights=gb.es['weight'],node_weights=gb.vs['weight'])
+sb = cb.cluster_graph(combine_vertices={'weight': 'sum'},combine_edges={'weight': 'sum'})
+
+t2=[]
+t3=[]
+for i in tqdm(cb):
+    f = [gb.vs[n]['topic'] for n in i]
+    f=sorted(f)
+    c = Counter(f)
+    t2.append(c.most_common(1)[0][0])
+
+for i in tqdm(cb):
+    f = [gb.vs[n]['wk_project'] for n in i]
+    f=sorted(f)
+    c = Counter(f)
+    t3.append(c.most_common(1)[0][0])
+
+sb.vs['topic'] = t2
+sb.vs['wk'] = t3
+
+t1=sb.vs['weight']
+t1=sorted(t1,reverse=1)#from large to small
+
+# t1[232]
+# Out[485]: 44.0
+
+# sum(t1[:232])/sum(t1)
+# Out[486]: 0.7009695011108867
+
+tb = [v.index for v in sb.vs if v['weight'] < 45] #to filter more than 70%
+sb.delete_vertices(tb)
+
+ig.write(sb,file_name,format='graphml') #
+################################################################
+
+########### river plot ####################################3
+d1 = pd.read_parquet(file with wikipedia projects and topics)
+dic = dict(zip(test['doi'],test['fields']))
+tqdm.pandas()
+d1['fields'] = d1['doi'].progress_apply(lambda x:dic[x])
+
+t1=d1[['new_topic','fields']]
+t1=t1.dropna(subset=['new_topic'])#1705084
+t1=t1.dropna(subset=['fields'])  #1629836
+t2 = t1['new_topic'].to_list()
+t5 = []
+for i in tqdm(t2):
+    if len(i)>2:# have'','[]'
+        t5.extend(eval(i)[0])
+t5=list(set(t5)) #63
+
+t2 = t1['fields'].to_list()
+t6 = []
+for i in tqdm(t2):
+    if len(i)>2:# 
+        c = eval(i)
+        a = [i['name'] for i in c]
+        t6.extend(a)
+t6=list(set(t6)) #175
+
+t3 = t1['new_topic'].to_list()
+t4 = t1['fields'].to_list()
+t5.sort()
+t6.sort()
+a=[i.split('.')[0] for i in t5]
+t8=list(set(a))
+t7=[x+'+'+y[:2] for x in t8 for y in macro]
+
+dic = dict(zip(t7,[0 for i in range(len(t7))]))
+for i in tqdm(range(len(t3))):
+    if len(t3[i])>2:
+        if len(t4[i])>2:
+            a = [i.split('.')[0] for i in eval(t3[i])[0]]
+            c = [i[:2] for i in [n['name'] for n in eval(t4[i])]]
+            unique_field = list(set(c))            
+            for x in a:
+                for y in unique_field:
+                    dic[x+'+'+y]+=float(c.count(y))/float(len(c))
+        
+######################## topic to macro fields #####################
+
+#river plot of wk project and macro fields
+dic = dict(zip(data['doi'],data['wk+topics']))
+d1['wk_project'] = d1['doi'].progress_apply(lambda x:dic[x])
+def clean(x):
+    try:
+        return dic[x]['wk_project']
+    except:
+        return ''
+d1['wk_project'] = d1['doi'].progress_apply(lambda x:clean(x))
+t1=d1[['wk_project','fields']]
+t1=t1.dropna(subset=['wk_project'])#1705085
+t1=t1.dropna(subset=['fields'])  #1629837
+t2 = t1['wk_project'].to_list()
+t3=[]
+for i in tqdm(t2):
+    for a in i:
+        if a not in t3:
+            t3.append(a)  #57684
+t3.sort()
+t7=[x+'+'+y[:2] for x in t3 for y in macro]
+
+t3 = t1['wk_project'].to_list()
+t4 = t1['fields'].to_list()
+
+dic = dict(zip(t7,[0 for i in range(len(t7))]))
+for i in tqdm(range(len(t3))):
+    if type(t3[i])==list:
+        if len(t4[i])>2:
+            a = t3[i]
+            c = [i[:2] for i in [n['name'] for n in eval(t4[i])]]
+            unique_field = list(set(c))            
+            for x in a:
+                for y in unique_field:
+                    dic[x+'+'+y]+=float(c.count(y))/float(len(c))
+
+t3=[];t4=[];
+for i in range(len(value)):
+    if value[i] !=0:
+        t3.append(key[i])
+        t4.append(value[i])#32723
+
+c = sorted(value)
+c1=[];c2=[];
+for i in c[-11:]:
+    a = value.index(i)
+    c1.append(key[a])
+    c2.append(i)
+
+c3 = [i[:-3] for i in c1]
+c3=c3[:-1]
+
+c1=[];c2=[];
+for i in tqdm(range(len(key))):    
+    if key[i][:-3] in c3:
+        c1.append(key[i])
+        c2.append(value[i])
+        
+######################################################################
+
+#################  Supplementary article topics via wikipedia api  ########################
+l2=[[],[]]
+session = requests.session()
+qc = []
+for line in open(file of article title,"r",encoding='utf8'): 
+    qc.append(line.strip())
+    
+for i in tqdm(l1):
+    if i in qc:
+        continue
+    link = 'https://wikipedia-topic.wmcloud.org/api/v1/topic?threshold=0.15&lang=en&title='
+    # page_title = 'Chow group'
+    url = link+i
+    # header={
+    #             'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/90.0.4430.212 Safari/537.36'
+    #             ,'accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.9'
+    #             ,'accept-encoding': 'gzip, deflate, br'
+    #             ,'accept-language': 'zh-CN,zh;q=0.9,en;q=0.8,en-GB;q=0.7,en-US;q=0.6'   
+    #         }   
+    header={
+                'User-Agent': random.choice(ua)
+                ,'accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.9'
+                ,'accept-encoding': 'gzip, deflate, br'
+                ,'accept-language': 'zh-CN,zh;q=0.9,en;q=0.8,en-GB;q=0.7,en-US;q=0.6'   
+            }   
+    while 1:
+        try:
+            data = session.get(url,headers=header,timeout=30).content.decode('gbk') 
+            if 'article' in data:
+                break
+            else:
+                time.sleep(random.randint(3,5))
+        except:
+            time.sleep(random.randint(3,5))
+    try:
+        topic = json.loads(data)['results']
+    except:
+        topic = ''
+    l2[0].append(i)
+    l2[1].append(str(topic))
+    qc.append(i)
 
