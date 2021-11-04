@@ -55,3 +55,13 @@ for i in tqdm(l1):
     l2[0].append(i)
     l2[1].append(str(topic))
     qc.append(i)
+    
+with open(r"save the data", 'a',encoding='utf-8') as f:
+    for i in qc:
+        f.write(i+'\n')
+        
+frames1 = [pd.DataFrame(i) for i in l2]
+result3 = pd.concat(frames1,axis=1)
+result3.to_excel(r'save the topics data',encoding='utf_8_sig')
+
+    
