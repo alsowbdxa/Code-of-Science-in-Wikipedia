@@ -16,6 +16,8 @@ import igraph as ig
 tqdm.pandas()
 sns.set(style="darkgrid")
 
+#read and clean the data with doi
+
 INPUT_DATA = 'minimal_dataset.parquet' #can be found from : https://github.com/Harshdeep1996/cite-classifications-wiki
 # read the data
 citations = pd.read_parquet(INPUT_DATA)#size is 29276667
@@ -92,8 +94,22 @@ cluster_solution = g.community_leiden(resolution_parameter=0.0001, n_iterations=
 super_graph = cluster_solution.cluster_graph(combine_vertices={'weight': 'sum'},combine_edges={'weight': 'sum'})
 
 to_delete_ids = [v.index for v in s1.vs if v.degree() == 0]
-s1.delete_vertices(to_delete_ids)# co-citation node:31515
+super_graph.delete_vertices(to_delete_ids)# co-citation node:31515
+ig.write(super_graph,file_name,format='gml') #use this file in Gephi and draw the co-citation network plot
 ############# co-citation network end #######################################
+
+############### figure 1 start #####################
+# to draw the relationship between the resolution and the number of clusters
+n=[0.1**i for i in range(1,12)]
+cluster_num=[]
+for i in tqdm(n):
+    cluster_solution = g.community_leiden(resolution_parameter=i, n_iterations=2,weights=g.es['weight'],node_weights=g.vs['weight'])
+    cluster_num.append(len(cluster_solution))
+    
+plt.plot(n,cluster_num)
+plt.xlabel('resolution parameter')
+plt.ylabel('number of clusters')
+############### figure 1 end #####################
 
 ######## Bibliographic coupling network start ################
 g11 = result.groupby('doi')
@@ -132,8 +148,6 @@ g.vs['name'] = node_list
 #use leiden detect the community
 cluster_solution = g.community_leiden(resolution_parameter=0.0001, n_iterations=2,weights=g.es['weight'],node_weights=g.vs['weight'])
 
-# pb = la.find_partition(g, la.ModularityVertexPartition)
-
 sb = pb.cluster_graph(combine_vertices={'weight': 'sum'},combine_edges={'weight': 'sum'})
 
 sb.vcount()
@@ -141,13 +155,13 @@ sb.vcount()
 tb = [v.index for v in sb.vs if v.degree() == 0]
 sb.delete_vertices(tb)
 
-ig.write(sb,file_name,format='gml')
+ig.write(sb,file_name,format='gml') #use this file in Gephi and draw the bibliographic coupling network plot
 
 testread = ig.read(file_name,format='gml')
 
 ########## Bibliographic coupling network end ####################
 
-#############analysis Bibliographic coupling network start #############
+############# analysis Bibliographic coupling network start #############
 #g.vount()#  the number of nodes
 #g.ecount() # the number of edges
 #g.vs[] #each node's information
@@ -165,8 +179,7 @@ node_betweenness_sorted = sorted(node_betweenness.items(), key=lambda e: e[1],re
 partition.total_weight_in_all_comms() #result=12760
 #get all the subgraphs
 subgraphs=partition.subgraphs()#type is list, and size is 1240
-
-################################################################################
+################### analysis Bibliographic coupling network end ####################
 
 # add fields to co-citation network
 field = [doi2fields[i] for i in g.vs['name']]
