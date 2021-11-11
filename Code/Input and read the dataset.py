@@ -57,7 +57,8 @@ citations['doi']=citations['article_id'].combine_first(citations['ndoi'])
 
 result = citations[['page_title','doi']]
 
-result1 = result.dropna(subset = ['doi'])# size is 1705085
+result1 = result.dropna(subset = ['doi'])# size is 1705085.
+# save result1 as page_doi.parquet and it will be used in next steps.
 
 # Input WikipediaCitations minimal
 # Read WikipediaCitations minimal 
