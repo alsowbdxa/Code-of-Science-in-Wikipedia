@@ -9,10 +9,10 @@ import json
 import random
 from tqdm import tqdm
 
-doi = []
-for line in open('read the doi files you need',"r",encoding='utf8'): 
-    doi.append(line.strip())
+d = pd.read_parquet(r'\page_doi.parquet')#the result in file "Input and read the dataset.py"
+doi = list(set(d['doi'].to_list()))#the size is 1157571
 
+# as for the Dimensions API please find more details in https://docs.dimensions.ai/dsl/api.html
 def get_access():
     #   The credentials to be used
     KEY = # your private API key
@@ -86,6 +86,8 @@ qc = []
 query_template_1 = 'search publications where %s in ["'
 query_template_2 = '"] return publications[basics+publisher+category_for+mesh_terms+concepts_scores+date+doi+open_access_categories_v2+authors+authors_count+relative_citation_ratio+research_org_countries+recent_citations+field_citation_ratio+times_cited] limit 300'
 
+#here we request 300 data per time, it could be adjusted to suit your condition. Find more details in Dimensions api documents.https://docs.dimensions.ai/dsl/api.html
+
 urls=[]
 for i in range(0,len(doi),300):
     try:
@@ -110,6 +112,11 @@ for i in tqdm(urls):
     if url in lack:
         continue
     job(url,header1)
+
+with open("\content_dimensions.txt", 'w',encoding='utf-8') as f:
+    for i in content:
+        f.write(i+'\n')
+
 ############################## Extracting data from Dimensions End ##########################################
 
 #Extract the data from the result above
@@ -123,12 +130,13 @@ times_cited = []
 types =[]
 year = []
 
-doi = []
-for line in open("above file's name","r",encoding='utf8'): 
-    doi.append(line.strip())
+# read the result above
+content_dimension = []
+for line in open("\content_dimensions.txt","r",encoding='utf8'): 
+    content_dimension.append(line.strip())
 
 
-for i in tqdm(doi):
+for i in tqdm(content_dimension):
     c = json.loads(i)['publications']
     for n in c:
         try:
@@ -167,3 +175,18 @@ for i in tqdm(doi):
             year.append(n['year'])
         except:
             year.append('')
+
+result_dimension = pd.DataFrame()
+result_dimension['doi'] = dois
+result_dimension['fields'] = fields
+result_dimension['journal'] = journal
+result_dimension['open_access'] = open_access
+result_dimension['recent_citations'] = recent_citations
+result_dimension['research_org_countries'] = research_org_countries
+result_dimension['times_cited'] = times_cited
+result_dimension['types'] = types
+result_dimension['year'] = year
+
+result_dimension.to_parquet(r'\result_dimension.parquet')#use your own path
+# this result will be used in combine the dataset, network and figures.
+
