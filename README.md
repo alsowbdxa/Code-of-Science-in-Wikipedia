@@ -5,7 +5,7 @@ Please find the code in the file *Code*, in this file, we list 4 fiels as below:
 
 1. [Input and read the dataset](Code/Input%20and%20read%20the%20dataset.py): Read the *Wikipedia Citations* dataset.
 
-    1. Download the [Wikipedia Citations dataset **minimal**](https://github.com/Harshdeep1996/cite-classifications-wiki) (ADD URL) and store it in the folder XXX.
+    1. Download the [Wikipedia Citations dataset **minimal**](https://github.com/Harshdeep1996/cite-classifications-wiki) and store it in the folder and name it as "minimal_dataset.parquet".
     2. Execute script
     3. The result will be YYY, stored in folder ZZZ. This will be the imput for step 2.
 
