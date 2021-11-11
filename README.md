@@ -7,7 +7,7 @@ Please find the code in the file *Code*, in this file, we list 4 fiels as below:
 
     1. Download the [Wikipedia Citations dataset **minimal**](https://github.com/Harshdeep1996/cite-classifications-wiki) and store it in the folder and name it as "minimal_dataset.parquet".
     2. Execute script
-    3. The result will be YYY, stored in folder ZZZ. This will be the imput for step 2.
+    3. The result will be *"page_doi.parquet"* which includes wikipedia page title and corresponding doi. This will be used in step 2,3,4.
 
 2. [Extracting data from Dimensions](Code/Extracting%20data%20from%20Dimensions.py): Extract data from Dimensions.
 4. [Adding topic from Wikipedia API](Code/Adding%20topic%20from%20Wikipedia%20API.py): Add ORES topics from Wikipedia API.
