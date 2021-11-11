@@ -24,8 +24,12 @@ sns.set(style="darkgrid")
 #     3. Figures in the paper.
 
 ########## create co-citation network matrix start #########################
+result = pd.read_parquet('page_doi.parquet') # the result in the step "Input and read the dataset.py"
+result_dimension = pd.read_parquet(r'\result_dimension.parquet')#use your own path, "Extracting data from Dimensions.py"
+result_topic = pd.read_parquet(r'\page_topic.parquet')#use your own path, "Adding topic from Wikipedia API.py"
+
 #co-citation network
-g1 = result1.groupby('page_title')
+g1 = result.groupby('page_title')
 g2=[i[1]['doi'] for i in g1] # the size of g2 is 405358
 g3 = [i for i in g2 if len(i)>1] #the size of g3 is 201987
 
@@ -59,6 +63,9 @@ g.vs['name'] = node_list
 cluster_solution = g.community_leiden(resolution_parameter=0.0001, n_iterations=2,weights=g.es['weight'],node_weights=g.vs['weight'])
 # to draw the network of clusters
 super_graph = cluster_solution.cluster_graph(combine_vertices={'weight': 'sum'},combine_edges={'weight': 'sum'})
+
+g_cocitation = g
+c_cocitation = cluster_solution
 
 to_delete_ids = [v.index for v in s1.vs if v.degree() == 0]
 super_graph.delete_vertices(to_delete_ids)# co-citation node:31515
@@ -103,8 +110,10 @@ g.vs['name'] = node_list
 cluster_solution = g.community_leiden(resolution_parameter=0.0001, n_iterations=2,weights=g.es['weight'],node_weights=g.vs['weight'])
 
 sb = pb.cluster_graph(combine_vertices={'weight': 'sum'},combine_edges={'weight': 'sum'})
-
 sb.vcount()
+
+g_biblio = g
+c_biblio = cluster_solution
 
 tb = [v.index for v in sb.vs if v.degree() == 0]
 sb.delete_vertices(tb)
