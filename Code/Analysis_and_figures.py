@@ -12,6 +12,7 @@ import bisect
 import leidenalg as la
 import gc
 import igraph as ig
+import pickle
 
 tqdm.pandas()
 sns.set(style="darkgrid")
@@ -43,7 +44,7 @@ for i in tqdm(g3):  #it costs 9 seconds to get the edge_list
     edge_list.append(list(combinations(c,2))) #generat edge_list for each wiki page by combinations(from itertools import *)
 
 dic={}#edge number is 17916861, and key is edge, value is weight of the edge
-for x in tqdm(edge_list):#19 seconds
+for x in tqdm(edge_list):
     for y in x:
         try:
             dic[y]+=1
@@ -66,6 +67,7 @@ super_graph = cluster_solution.cluster_graph(combine_vertices={'weight': 'sum'},
 
 g_cocitation = g
 c_cocitation = cluster_solution
+s_cocitation = super_graph
 
 to_delete_ids = [v.index for v in s1.vs if v.degree() == 0]
 super_graph.delete_vertices(to_delete_ids)# co-citation node:31515
@@ -108,17 +110,17 @@ g.vs['name'] = node_list
 
 #use leiden detect the community
 cluster_solution = g.community_leiden(resolution_parameter=0.0001, n_iterations=2,weights=g.es['weight'],node_weights=g.vs['weight'])
-
-sb = pb.cluster_graph(combine_vertices={'weight': 'sum'},combine_edges={'weight': 'sum'})
-sb.vcount()
+super_graph = cluster_solution.cluster_graph(combine_vertices={'weight': 'sum'},combine_edges={'weight': 'sum'})
+super_graph.vcount()
 
 g_biblio = g
 c_biblio = cluster_solution
+s_biblio = super_graph
 
-tb = [v.index for v in sb.vs if v.degree() == 0]
-sb.delete_vertices(tb)
+tb = [v.index for v in super_graph.vs if v.degree() == 0]
+super_graph.delete_vertices(tb)
 
-ig.write(sb,file_name,format='gml') #use this file in Gephi and draw the bibliographic coupling network plot
+ig.write(super_graph,file_name,format='gml') #use this file in Gephi and draw the bibliographic coupling network plot
 
 testread = ig.read(file_name,format='gml')
 ########## Bibliographic coupling network end ####################
@@ -138,12 +140,13 @@ def top_macro(cate):# use the top1 macro topic to represent the cluster
     l6 = [(i[0],sum(i[1]['score'])) for i in l5]
     l7 = sorted(l6,key = lambda x:x[1],reverse=1)
     return l7[0]
+page_topic = dict(zip(result.page_title,result.new_topic))
 top_topic=[]
 top_score=[]
 lack=[]
 for i in tqdm(c_biblio):
     page = [g_biblio.vs[x]['name'] for x in i]
-    cate = [dic[n] for n in page if (dic[n] is not None) and (len(dic[n])>2)]
+    cate = [page_topic[n] for n in page if (page_topic[n] != np.nan) and (len(page_topic[n])>2)]
     try:
         top = top_macro(cate)
         top_topic.append(top[0])
@@ -161,12 +164,13 @@ def top_macro(cate):# use the top1 wk_project to represent the cluster
     wp = c.most_common(1)[0][0]# 1st wk project
     f = c.most_common(1)[0][1]# frequent
     return [wp,f]
+page_wkp = dict(zip(result.page_title,result.wk_project))
 top_project=[]
 top_f=[]
 lack=[]
 for i in tqdm(c_biblio):
     page = [g_biblio.vs[x]['name'] for x in i]
-    cate = [test[n]['wk_project'] for n in page if (test[n] is not None) and (len(test[n])>1)]
+    cate = [page_wkp[n] for n in page if (page_wkp[n] is not None) and (len(page_wkp[n])>1)]
     try:
         top = top_macro(cate)
         top_project.append(top[0])
@@ -179,18 +183,21 @@ for i in tqdm(c_biblio):
 #################################################################
 ###co citation netwrok
 def top_macro(cate):# use the top1 FoR to represent the cluster
-    l1 = [x['name'] for i in cate for x in i]    
+    #l1 = [x['name'] for i in cate for x in i] 
+    l1 = [i for i in cate]   
     c = Counter(l1)
     field = c.most_common(1)[0][0]# 1st field
     f = c.most_common(1)[0][1]# frequent
     return [field,f]
+
+doi_field = dict(zip(result.doi,result.field))
 lc = list(c_cocitation)
 top_field=[]
 top_f=[]
 lack=[]
 
 for i in tqdm(c_cocitation):
-    page = [g_citation.vs[x]['name'] for x in i]
+    page = [g_cocitation.vs[x]['name'] for x in i]
     cate=[]
     for n in page:
         try:
@@ -209,10 +216,9 @@ for i in tqdm(c_cocitation):
 ################### analysis network end ####################
 
 
-
 ################## 2. Integrate supporting datasets to networks (ORES, WikiProjects, FoR) ###############
 #  doi2fields
-test = d[['doi','fields']]
+test = result_dimension[['doi','field']]
 
 t1 = list(test.groupby('doi'))
 t2=[]
@@ -220,7 +226,7 @@ t3=[]
 for i in tqdm(t1):
     t2.append(i[0])
     try:
-        a = [n['name'][:2] for n in eval(list(i[1]['fields'])[0])]
+        a = [n['name'][:2] for n in eval(list(i[1]['field'])[0])]
         c = Counter(a)
         f = c.most_common(1)[0][0]
     except:
@@ -230,7 +236,7 @@ for i in tqdm(t1):
 doi2fields = dict(zip(t2,t3))
 #######################################
 #  page2topics
-test = d1[['page_title','new_topic']]
+test = result_topic[['page_title','new_topic']]
 t1 = list(test.groupby('page_title'))
 t2=[]
 t3=[]
@@ -253,7 +259,7 @@ page2topics = dict(zip(t2,t3))
 #########################################
 # page2wk_projects
 
-test = d1[['page_title','wk_project']]
+test = result[['page_title','wk_project']]
 
 t1 = list(test.groupby('page_title'))
 t2=[]
@@ -301,7 +307,7 @@ t1=sorted(t1,reverse=1)#from large to small
 tb = [v.index for v in super_graph.vs if v['weight'] < 137] #to filter more than 70%
 super_graph.delete_vertices(tb)
 
-ig.write(super_graph,file_name,format='graphml')
+ig.write(super_graph,file_name,format='graphml')#define your file_name
 ######### add fields to co-citation network end ################
 
 # add topic and wk_project to biblio network
@@ -354,7 +360,7 @@ ig.write(sb,file_name,format='graphml') # this offers the super network with wik
 ############### figure 1 start #####################
 ### "Figure 1:  Number of clusters at varying values of the resolution parameter" 
 # to draw the relationship between the resolution and the number of clusters
-result = data[['page_title','doi']]
+# use result[['page_title','doi']] and generate the graph as before for each network
 
 n=[i*0.01 for i in range(1,99)]
 cluster_num=[]
@@ -370,7 +376,7 @@ plt.ylabel('Number of clusters',fontsize = 14)
 
 ###  "Figure 2:  Cumulative share of nodes included in the supernetworks, per clustersize threshold" ####
 ########### plot cumulative number of nodes per cluster of both networks ################
-l1 = sc.vs['weight'] #sc is super network of co-citation network and sb is super network of bibliographic coupling network
+l1 = sc.vs['weight'] #sc is super network of co-citation network and sb is super network of bibliographic coupling network, which could be found above
 l1 = sorted(l1,reverse=1)
 l2 = [sum(l1[:i+1])/sum(l1) for i in range(len(l1))]
 l3 = l2
@@ -430,9 +436,15 @@ axins.add_artist(con)
 
 ##########################################################
 # bibliographic coupling network
+l1 = sb.vs['weight'] #sb is super network of bibliographic coupling network which could be found above
+l1 = sorted(l1,reverse=1)
+l2 = [sum(l1[:i+1])/sum(l1) for i in range(len(l1))]
+l3 = l2
+x = [math.log(i,10) for i in l1]
+x = [math.log(l1[0],10)-i for  i in x]
 fig, ax = plt.subplots(1, 1)
 ax.plot(x,l3)
-position = 235  #(0.7),size may 98
+position = 235  #(0.7),size is around 98
 ax.axvline(x[position], color='r', linestyle='--')
 plt.text(x[position], l3[position]+0.001, ' %.2f' % (x[position]), ha='left', va= 'top',fontsize=12)
 axins = ax.inset_axes((0.71, 0.08, 0.28, 0.3))
@@ -484,8 +496,8 @@ axins.add_artist(con)
 ###  "Figure 2:  Cumulative share of nodes included in the supernetworks, per clustersize threshold" end ####
 
 ###  Table 1, Table 2 and Figure 3 ####
-test = d[['doi','fields']]
-t1=d['fields'].to_list()
+test = result_dimension[['doi','field']]
+t1=result_dimension['field'].to_list()
 t2=[]
 for i in tqdm(t1):
     try:
@@ -498,9 +510,9 @@ import re
 macro=[];micro=[];
 for i in t3:
     if len(re.sub('\D','',i))==2:
-        macro.append(i)
+        macro.append(i) #macro topic
     if len(re.sub('\D','',i))==4:
-        micro.append(i)
+        micro.append(i) #micro topic
 
 t3.sort()#01,0101,...
 dic = dict(zip(t3,[0 for i in range(len(t3))]))
@@ -520,7 +532,7 @@ t1 = list(test.groupby('doi'))
 num=0
 for i in tqdm(t1):
     try:
-        c = eval(i[1]['fields'].to_list()[0])
+        c = eval(i[1]['field'].to_list()[0])
     except:
         num+=1
         continue
@@ -535,7 +547,7 @@ value = list(dic.values())
 # Out[61]: 143291    
 
 # recent citation, missing 75248,have 1629837
-cited = d['recent_citation'].to_list()
+cited = result_dimension['recent_citation'].to_list()
 max(cited)
 # Out[66]: 34845.0
 
@@ -547,12 +559,12 @@ np.median(cited) # 5.0
 ###  Figure 4 and 5: River plot ####
 # Here we use an online tool to draw the river plot and you can find more details in dycharts.com
 ############## topic to macro fields ####################################
-d1 = pd.read_parquet(file with wikipedia projects and topics)
-dic = dict(zip(test['doi'],test['fields']))
-tqdm.pandas()
-d1['fields'] = d1['doi'].progress_apply(lambda x:dic[x])
-
-t1=d1[['new_topic','fields']]
+#d1 = pd.read_parquet(file with wikipedia projects and topics)
+#dic = dict(zip(test['doi'],test['fields']))
+#tqdm.pandas()
+result['fields'] = result['doi'].progress_apply(lambda x:doi2fields[x])
+result['new_topic'] = result['page_title'].progress_apply(lambda x:page2topics[x])
+t1=result[['new_topic','fields']]
 t1=t1.dropna(subset=['new_topic'])#1705084
 t1=t1.dropna(subset=['fields'])  #1629836
 t2 = t1['new_topic'].to_list()
