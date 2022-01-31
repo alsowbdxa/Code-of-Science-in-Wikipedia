@@ -15,7 +15,7 @@ import igraph as ig
 import pickle
 
 tqdm.pandas()
-sns.set(style="darkgrid")
+#sns.set(style="darkgrid")
 
 # with the result1 we get from the "input and read the dataset.py", we can creat the co-citation network and bibliographic coupling network and analysis it.
 #
@@ -694,100 +694,38 @@ for i in tqdm(range(len(key))):
 
 ###  Figure 6,7 and 8 ####
 # top10 clusters' topic and wiki_project in bibliographic coupling network 
-for n in tqdm(range(10)):
-    l1=[[] for _ in range(13)]
-    d1=pd.DataFrame(l5[n])
-    d1.columns=['page_title']
-    d2 = pd.merge(d1,topic,on='page_title',how='inner')
-    d2 = d2.drop_duplicates(subset=['page_title'])
-    #topic
-    t1=[];t2=[]
-    for i in d2['topic'].to_list():
-        t1.extend(eval(i)[0])
-        t2.extend(eval(i)[1])
-#1
-#a
-    collection_words1 = Counter(t1)
-    l1[0].extend([i[0] for i in collection_words1.most_common(10)])
-    l1[1].extend([i[1] for i in collection_words1.most_common(10)])
-#b    
-    #
-    d4 = pd.concat([pd.DataFrame(t1),pd.DataFrame(t2)],axis=1)   
-    d4.columns=['topic','p']
-    d5 = d4.groupby('topic')
-    dic1 = dict()
-    for i in d5:
-        dic1[i[0]] = sum(i[1]['p'])
-    r1 = sorted(dic1.items(),reverse=1,key = lambda x:x[1])
-    l1[2].extend([i[0] for i in r1[:10]])
-    l1[3].extend([i[1] for i in r1[:10]])
-#2
-#a
-    dic2 = dict()
-    for i in d5:
-        dic2[i[0]] = sum(i[1]['p'])/len(i[1])
-    #
-    r2 = sorted(dic2.items(),reverse=1,key = lambda x:x[1])
-    l1[4].extend([i[0] for i in r2[:10]])
-    l1[5].extend([i[1] for i in r2[:10]])
-#b
-    dic3 = dict()
-    for i in d5:
-        dic3[i[0]] = sum(i[1]['p'])/len(l5[n])
-    #
-    r3 = sorted(dic3.items(),reverse=1,key = lambda x:x[1])
-    l1[6].extend([i[0] for i in r3[:10]])
-    l1[7].extend([i[1] for i in r3[:10]])
-#3
-    d3 = pd.merge(d1,wk,on='page_title',how='inner')
-    d3 = d3.drop_duplicates(subset=['page_title'])
-    #wk project
-    t3=[]
-    for i in d3['wk+topics'].to_list():
-        t3.extend(i['wk_project'])    
-    collection_words3 = Counter(t3)
-#a    
-    l1[8].extend([i[0] for i in collection_words3.most_common(10)])
-    l1[9].extend([i[1] for i in collection_words3.most_common(10)])
-#b
-    l1[10].extend([i/len(l5[n]) for i in l1[9]])
-    l1[11].append(len(d2)/len(d1))#the percentage of matched topics
-    l1[12].append(len(d3)/len(d1))#the percentage of matched wiki_project
-    frames1 = [pd.DataFrame(i) for i in l1]
-    result3 = pd.concat(frames1,axis=1)
-    headers = '''
-    topic1#num1#topic2#probability2#topic3#p3#topic4#Nor_p#wk#num3#Nor_num#topic/all#wk/all
-    '''.split('#')
-    result3.to_excel(file_name,encoding='utf_8_sig',header=headers)
-##################################################
+l1 = [len(i) for i in c_biblio]
+l2 = sorted(l1,reverse=1)
+#l2[:10]
+l3 = [l1.index(i) for i in l2[:10]]
+l4 = [c_biblio(i) for i in l3]
+l5 = [[g_biblio.vs[n]['name'] for n in i] for i in l4]#list of top10 cluster and their peag_title
 
-#frequency
-l1=[]
-for n in tqdm(range(10)):
-    d1 = pd.DataFrame(l5[n])
-    d1.columns=['page_title']
-    d2 = pd.merge(d1,topic,on='page_title',how='inner')
-    d2 = d2.drop_duplicates(subset=['page_title'])
-    #topic
-    t1=[];t2=[]
-    for i in d2['topic'].to_list():
-        t1.extend(eval(i)[0])
-        t2.extend(eval(i)[1])
-    cate = [i.split('.')[0] for i in t1]
-    d4 = pd.concat([pd.DataFrame(cate),pd.DataFrame(t2)],axis=1)   
-    d4.columns=['topic','p']
-    d5 = d4.groupby('topic')
-    dic1 = dict()
-    for i in d5:
-        # dic1[i[0]] = sum(i[1]['p'])/len(l5[n])
-        dic1[i[0]] = sum(i[1]['p'])
-    r1 = sorted(dic1.items(),reverse=1,key = lambda x:x[1])
-    l1.append(r1)
-    print(n)
-    print(r1)
-    # Counter(cate).most_common(6))
-    print('*'*10)
+l6 = [[eval(page2topics[n]) for n in i if len(page2topics[n])>1] for i in l5]
+top_topic=[];#to save marco topic for top10 cluster
+for cluster in tqdm(l6):
+    t1 = [n.split('.')[0] for y in cluster if y!=[] for n in y[0]]
+    t2 = [n for y in cluster if y!=[] for n in y[1]]
+    d = pd.DataFrame({'topic':t1,'score':t2})
+    d1 = d.groupby('topic')
+    top_topic.append([(i[0],sum(i[1]['score'])) for i in d1])
+
+l7 = [[page2wk_projects[n] for n in i] for i in l5] 
+#to save wiki project for top10 cluster
+top_project=[Counter(i).most_common() for i in l7]
     
+# top FoR of co-citaion network
+l1 = [len(i) for i in c_cocitation]
+l2 = sorted(l1,reverse=1)
+#l2[:10]
+l3 = [l1.index(i) for i in l2[:10]]
+l4 = [c_cocitation(i) for i in l3]
+l5 = [[g_cocitation.vs[n]['name'] for n in i] for i in l4]#list of top10 cluster and their doi
+
+l8 = [[doi2fields[n] for n in i] for i in l5] 
+t1 = [[n for i in x for n in i] for x in l8]
+top_field = [Counter(i).most_common() for i in t1]
+
 #Create a table with the top-10 Wikipedia pages per cluster 
 #(only top-10 cluster, bibliographic coupling), 
 #picking the 10 Wikipedia pages with most citations to a DOI.
