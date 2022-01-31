@@ -28,6 +28,33 @@ sns.set(style="darkgrid")
 result = pd.read_parquet('page_doi.parquet') # the result in the step "Input and read the dataset.py"
 result_dimension = pd.read_parquet(r'\result_dimension.parquet')#use your own path, "Extracting data from Dimensions.py"
 result_topic = pd.read_parquet(r'\page_topic.parquet')#use your own path, "Adding topic from Wikipedia API.py"
+#
+#wiki project could be get from below link.
+#https://figshare.com/articles/dataset/Wikipedia_Articles_and_Associated_WikiProject_Templates/10248344
+file = open("labeled_enwiki_with_topics_metadata.json", 'r', encoding='utf-8')
+papers = []
+for line in file.readlines():
+    dic = json.loads(line)
+    papers.append(dic)   
+title=[]
+topic=[]
+wk = []
+for i in tqdm(papers):
+    title.append(i['title'])
+    topic.append(i['topics'])
+    wk.append(i['wp_templates'])
+dic = dict(zip(title,wk))
+def clean(x):
+    try:
+        return dic[x]
+    except:
+        return np.nan
+result['wk_project'] = result['page_title'].progress_apply(lambda x:clean(x))
+#with open('', 'wb') as f:
+#    pickle.dump(dic, f, pickle.HIGHEST_PROTOCOL)   
+#with open('', 'rb') as f:
+#    test = pickle.load(f)
+########################################################
 
 #co-citation network
 g1 = result.groupby('page_title')
@@ -605,17 +632,17 @@ for i in tqdm(range(len(t3))):
 ######################## topic to macro fields #####################
 
 ################ river plot of wk project and macro fields ###############
-dic = dict(zip(data['doi'],data['wk+topics']))
-d1['wk_project'] = d1['doi'].progress_apply(lambda x:dic[x])
-def clean(x):
-    try:
-        return dic[x]['wk_project']
-    except:
-        return ''
-d1['wk_project'] = d1['doi'].progress_apply(lambda x:clean(x))
-t1=d1[['wk_project','fields']]
+#dic = dict(zip(data['doi'],data['wk+topics']))
+#d1['wk_project'] = d1['doi'].progress_apply(lambda x:dic[x])
+#def clean(x):
+#    try:
+#        return dic[x]['wk_project']
+#    except:
+#        return ''
+#d1['wk_project'] = d1['doi'].progress_apply(lambda x:clean(x))
+t1=result[['wk_project','field']]
 t1=t1.dropna(subset=['wk_project'])#1705085
-t1=t1.dropna(subset=['fields'])  #1629837
+t1=t1.dropna(subset=['field'])  #1629837
 t2 = t1['wk_project'].to_list()
 t3=[]
 for i in tqdm(t2):
@@ -626,7 +653,7 @@ t3.sort()
 t7=[x+'+'+y[:2] for x in t3 for y in macro]
 
 t3 = t1['wk_project'].to_list()
-t4 = t1['fields'].to_list()
+t4 = t1['field'].to_list()
 
 dic = dict(zip(t7,[0 for i in range(len(t7))]))
 for i in tqdm(range(len(t3))):
