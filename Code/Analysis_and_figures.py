@@ -692,7 +692,7 @@ for i in tqdm(range(len(key))):
 ######################################################################
 ###  Figure 4 and 5: River plot end ####
 
-###  Figure 6,7 and 8 ####
+###  Data for Figure 6,7 and 8 ####
 # top10 clusters' topic and wiki_project in bibliographic coupling network 
 l1 = [len(i) for i in c_biblio]
 l2 = sorted(l1,reverse=1)
@@ -739,6 +739,6 @@ for n in tqdm(range(10)):
 frames1 = [pd.DataFrame(i) for i in a0]
 result3 = pd.concat(frames1,axis=1)
 result3.to_excel(file_name,encoding='utf_8_sig')
-###  Figure 6,7 and 8 end ####
+###  Data for Figure 6,7 and 8 end ####
 ##########################################################
 
